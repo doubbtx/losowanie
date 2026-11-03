@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Losowanie Prezentów</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: one narrow column — a hanging gift tag as the hero, then the budget ballot. */
@@ -130,7 +135,7 @@ const firebaseConfig = {
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, collection, onSnapshot, setDoc, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, collection, onSnapshot, setDoc, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const SLOTS=[
   {id:"kamil",name:"Kamil"},
@@ -204,7 +209,9 @@ const meRef=()=>doc(S.db,"draws",S.uid);
 async function shuffleTo(finalName){
   if(!matchMedia("(prefers-reduced-motion: reduce)").matches){
     const n=$("tagName");n.classList.remove("mystery");
-    for(let i=0;i<14;i++){n.textContent=SLOTS[Math.floor(Math.random()*SLOTS.length)].name;$("tagNote").textContent="Losuję…";await new Promise(r=>setTimeout(r,60+i*9));}
+    n.classList.add("mystery");const marks=["?","??","???"];
+    for(let i=0;i<9;i++){n.textContent=marks[i%3];$("tagNote").textContent="Losuję…";await new Promise(r=>setTimeout(r,120));}
+    n.classList.remove("mystery");
   }
   setTag(finalName,"Czy to Ty? Jeśli tak, losuj ponownie.",{swing:true});
 }
@@ -268,17 +275,22 @@ if(firebaseConfig.projectId==="WKLEJ"){
 }else{
   try{
     const app=initializeApp(firebaseConfig);
-    S.db=getFirestore(app);
+    try{
+      S.db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentSingleTabManager()}),experimentalAutoDetectLongPolling:true});
+    }catch(_){
+      S.db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true});
+    }
+    const slow=setTimeout(()=>{if(!S.meReady||!S.takenReady){S.msg="Połączenie z bazą trwa dłużej niż zwykle. Jeśli nic się nie zmieni, odśwież stronę.";render();}},10000);
     const auth=getAuth(app);
     const fail=e=>{console.error(e);S.error="Nie udało się połączyć z bazą. Odśwież stronę.";render();};
-    onSnapshot(collection(S.db,"taken"),q=>{S.taken=new Set(q.docs.map(d=>d.id));S.takenReady=true;render();reconcile();},fail);
+    onSnapshot(collection(S.db,"taken"),q=>{S.taken=new Set(q.docs.map(d=>d.id));S.takenReady=true;if(S.meReady){clearTimeout(slow);if(S.msg.startsWith("Połączenie"))S.msg="";}render();reconcile();},fail);
     onSnapshot(collection(S.db,"votes"),q=>{S.votes=q.docs.map(d=>({id:d.id,amount:d.data().amount}));render();},fail);
     let sub=null;
     onAuthStateChanged(auth,u=>{
       if(!u)return;
       S.uid=u.uid;render();
       if(sub)sub();
-      sub=onSnapshot(meRef(),d=>{S.me=d.exists()?d.data():null;S.meReady=true;render();reconcile();},fail);
+      sub=onSnapshot(meRef(),d=>{S.me=d.exists()?d.data():null;S.meReady=true;if(S.takenReady){clearTimeout(slow);if(S.msg.startsWith("Połączenie"))S.msg="";}render();reconcile();},fail);
     });
     signInAnonymously(auth).catch(e=>{console.error(e);S.error="Logowanie nie działa. Sprawdź, czy w Firebase jest włączone logowanie anonimowe i dodana domena github.io.";render();});
   }catch(e){console.error(e);S.error="Błędna konfiguracja Firebase.";render();}
