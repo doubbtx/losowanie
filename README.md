@@ -1,6 +1,6 @@
 # Losowanie prezentów
 
-Strona do świątecznego losowania (Kamil, Mateusz, Paweł, Sabina) i głosowania na budżet prezentu.
+Strona do świątecznego losowania (Kamil, Mateusz, Paweł, Sabina, Asia, Julia, Adrian) i głosowania na budżet prezentu.
 Działa na GitHub Pages, a dane trzyma w darmowej bazie Firebase (Firestore).
 
 ## Podłączenie (ok. 10 minut)
