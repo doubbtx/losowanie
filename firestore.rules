@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myDraw() { return /databases/$(database)/documents/draws/$(request.auth.uid); }
+
+    // Zajęte imiona: każdy widzi, nikt nie widzi kto. Można je tylko utworzyć
+    // razem z zatwierdzeniem własnego losowania. Nie da się ich zmienić ani usunąć.
+    match /taken/{slot} {
+      allow read: if true;
+      allow create: if signedIn()
+        && slot in ['kamil', 'mateusz', 'pawel', 'sabina']
+        && getAfter(myDraw()).data.status == 'confirmed'
+        && getAfter(myDraw()).data.slot == slot;
+      allow update, delete: if false;
+    }
+
+    // Losowanie danej osoby: widzi je tylko ona. Po zatwierdzeniu nie da się go zmienić.
+    match /draws/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && (resource == null || resource.data.status != 'confirmed')
+        && request.resource.data.status in ['open', 'pending', 'confirmed']
+        && (request.resource.data.status != 'confirmed'
+            || (!exists(/databases/$(database)/documents/taken/$(request.resource.data.slot))
+                && existsAfter(/databases/$(database)/documents/taken/$(request.resource.data.slot))));
+      allow delete: if false;
+    }
+
+    // Głosy na budżet: każdy widzi wyniki, każdy zmienia tylko swój głos.
+    match /votes/{uid} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.amount in [100, 200, 300, 500, 1000];
+      allow delete: if false;
+    }
+  }
+}
