@@ -106,7 +106,6 @@ section.budget{display:flex;flex-direction:column;gap:16px;border-top:1px solid 
     <p class="msg" id="msg"></p>
     <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
       <span class="count" id="count"></span>
-      <ul class="roster" id="roster" aria-label="Pula imion"></ul>
     </div>
   </div>
 
@@ -156,8 +155,6 @@ function setTag(name,note,{mystery=false,stamp="",swing=false}={}){
 function btn(label,cls,fn,dis){const b=document.createElement("button");b.type="button";b.className=cls;b.textContent=label;b.disabled=!!dis||S.busy;b.onclick=fn;return b;}
 
 function render(){
-  const r=$("roster");r.innerHTML="";
-  SLOTS.forEach(s=>{const li=document.createElement("li");li.textContent=s.name;if(S.taken.has(s.id))li.className="gone";r.appendChild(li);});
   $("count").textContent=S.takenReady?`Zatwierdzone: ${S.taken.size} z ${SLOTS.length}`:"";
   $("msg").textContent=S.msg;
   const a=$("actions");a.innerHTML="";
