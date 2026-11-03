@@ -250,8 +250,14 @@ async function confirmDraw(){
     });
   }catch(e){
     console.error(e);
-    S.msg="To imię zostało właśnie zatwierdzone przez kogoś innego. Losuj jeszcze raz.";
-    try{await setDoc(meRef(),{status:"open",excluded:me.excluded||[]});}catch(_){}
+    if(e&&e.message==="already-taken"){
+      S.msg="To imię zostało właśnie zatwierdzone przez kogoś innego. Losuj jeszcze raz.";
+      try{await setDoc(meRef(),{status:"open",excluded:me.excluded||[]});}catch(_){}
+    }else if(e&&e.code==="permission-denied"){
+      S.msg="Baza odrzuciła zatwierdzenie (reguły Firestore nie znają tego imienia). Organizator musi zaktualizować reguły.";
+    }else{
+      S.msg="Nie udało się zatwierdzić ("+((e&&e.code)||"błąd połączenia")+"). Spróbuj jeszcze raz.";
+    }
   }
   S.busy=false;S.confirmAsk=false;render();
 }
